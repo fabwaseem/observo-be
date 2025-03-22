@@ -13,19 +13,9 @@ export class CommentService {
   constructor(private prisma: PrismaService) {}
 
   async create(
-    walletAddress: string,
+    userId: string,
     createCommentDto: CreateCommentDto,
   ): Promise<Comment> {
-    const user = await this.prisma.user.findUnique({
-      where: { walletAddress },
-    });
-
-    if (!user) {
-      throw new NotFoundException(
-        `User with wallet address ${walletAddress} not found`,
-      );
-    }
-
     // Check if post exists
     const post = await this.prisma.post.findUnique({
       where: { id: createCommentDto.postId },
@@ -40,7 +30,7 @@ export class CommentService {
     return this.prisma.comment.create({
       data: {
         content: createCommentDto.content,
-        userId: user.id,
+        userId: userId,
         postId: createCommentDto.postId,
       },
       include: {
@@ -106,18 +96,10 @@ export class CommentService {
 
   async update(
     id: string,
-    walletAddress: string,
+    userId: string,
     updateCommentDto: UpdateCommentDto,
   ): Promise<Comment> {
-    const user = await this.prisma.user.findUnique({
-      where: { walletAddress },
-    });
 
-    if (!user) {
-      throw new NotFoundException(
-        `User with wallet address ${walletAddress} not found`,
-      );
-    }
 
     const comment = await this.prisma.comment.findUnique({
       where: { id },
@@ -128,7 +110,7 @@ export class CommentService {
     }
 
     // Only comment creator can update it
-    if (comment.userId !== user.id) {
+    if (comment.userId !== userId) {
       throw new ForbiddenException('You can only update your own comments');
     }
 
@@ -150,16 +132,8 @@ export class CommentService {
     });
   }
 
-  async remove(id: string, walletAddress: string): Promise<Comment> {
-    const user = await this.prisma.user.findUnique({
-      where: { walletAddress },
-    });
+  async remove(id: string, userId: string): Promise<Comment> {
 
-    if (!user) {
-      throw new NotFoundException(
-        `User with wallet address ${walletAddress} not found`,
-      );
-    }
 
     const comment = await this.prisma.comment.findUnique({
       where: { id },
@@ -170,7 +144,7 @@ export class CommentService {
     }
 
     // Only comment creator can delete it
-    if (comment.userId !== user.id) {
+    if (comment.userId !== userId) {
       throw new ForbiddenException('You can only delete your own comments');
     }
 

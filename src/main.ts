@@ -16,6 +16,7 @@ import { MyLogger } from './modules/logger/logger.service';
 import { API_PREFIX } from './shared/constants/global.constants';
 import { RateLimitGuard } from './shared/guards/rate-limit.guard';
 import { SecurityInterceptor } from './shared/interceptors/security.interceptor';
+import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -34,6 +35,7 @@ async function bootstrap() {
     origin: process.env.FRONTEND_URL || 'http://localhost:3000',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Set-Cookie'],
     credentials: true,
     maxAge: 3600,
   });
@@ -85,6 +87,9 @@ async function bootstrap() {
       },
     }),
   );
+
+  // Enable cookie parser
+  app.use(cookieParser());
 
   const configService = app.get<ConfigService>(ConfigService);
   const swaggerConfig = configService.get<SwaggerConfig>('swagger');

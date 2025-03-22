@@ -22,6 +22,7 @@ import { CommentService } from './comment.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
 import { AuthGuard } from '../auth/guards/auth.guard';
+import { AnonymousGuard } from '../auth/guards/anonymous.guard';
 import { Comment } from '@prisma/client';
 
 @ApiTags('comments')
@@ -31,21 +32,23 @@ export class CommentController {
 
   @Post()
   @ApiBearerAuth()
-  @UseGuards(AuthGuard)
-  @ApiOperation({ summary: 'Create a new comment' })
+  @UseGuards(AnonymousGuard)
+  @ApiOperation({
+    summary: 'Create a new comment (supports anonymous commenting)',
+  })
   @ApiResponse({
     status: 201,
     description: 'The comment has been successfully created.',
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized.' })
   create(
     @Request() req,
     @Body() createCommentDto: CreateCommentDto,
   ): Promise<Comment> {
-    return this.commentService.create(req.user.walletAddress, createCommentDto);
+    return this.commentService.create(req.user.id, createCommentDto);
   }
 
   @Get()
+  @UseGuards(AnonymousGuard)
   @ApiOperation({ summary: 'Get all comments for a post' })
   @ApiQuery({
     name: 'postId',
@@ -61,6 +64,7 @@ export class CommentController {
   }
 
   @Get(':id')
+  @UseGuards(AnonymousGuard)
   @ApiOperation({ summary: 'Get a comment by id' })
   @ApiParam({ name: 'id', description: 'Comment ID' })
   @ApiResponse({
@@ -68,15 +72,14 @@ export class CommentController {
     description: 'Return the comment.',
   })
   @ApiResponse({ status: 404, description: 'Comment not found.' })
-  @ApiResponse({ status: 401, description: 'Unauthorized.' })
   findOne(@Param('id') id: string): Promise<Comment> {
     return this.commentService.findOne(id);
   }
 
   @Patch(':id')
   @ApiBearerAuth()
-  @UseGuards(AuthGuard)
-  @ApiOperation({ summary: 'Update a comment' })
+  @UseGuards(AnonymousGuard)
+  @ApiOperation({ summary: 'Update a comment (supports anonymous commenting)' })
   @ApiParam({ name: 'id', description: 'Comment ID' })
   @ApiResponse({
     status: 200,
@@ -90,17 +93,13 @@ export class CommentController {
     @Body() updateCommentDto: UpdateCommentDto,
     @Request() req,
   ): Promise<Comment> {
-    return this.commentService.update(
-      id,
-      req.user.walletAddress,
-      updateCommentDto,
-    );
+    return this.commentService.update(id, req.user.id, updateCommentDto);
   }
 
   @Delete(':id')
   @ApiBearerAuth()
-  @UseGuards(AuthGuard)
-  @ApiOperation({ summary: 'Delete a comment' })
+  @UseGuards(AnonymousGuard)
+  @ApiOperation({ summary: 'Delete a comment (supports anonymous commenting)' })
   @ApiParam({ name: 'id', description: 'Comment ID' })
   @ApiResponse({
     status: 200,
@@ -110,6 +109,6 @@ export class CommentController {
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   remove(@Param('id') id: string, @Request() req): Promise<Comment> {
-    return this.commentService.remove(id, req.user.walletAddress);
+    return this.commentService.remove(id, req.user.id);
   }
 }

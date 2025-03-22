@@ -1,9 +1,16 @@
 import { IsString, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Request } from 'express';
 
 export class AuthResponseDTO {
+  @ApiProperty()
   walletAddress: string;
+
+  @ApiProperty()
   accessToken: string;
+
+  @ApiProperty()
+  removeSession: boolean;
 }
 
 export class AuthUserDTO {
@@ -21,4 +28,9 @@ export class AuthUserDTO {
   @IsString()
   @ApiProperty({ required: false })
   accessToken?: string;
+
+  @ApiProperty({ required: false })
+  walletAddress?: string;
+
+  request?: Request;
 }

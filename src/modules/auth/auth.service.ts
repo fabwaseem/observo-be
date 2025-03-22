@@ -16,6 +16,8 @@ import {
   INVALID_WALLET_ADDRESS,
   MISSING_SIGNED_MESSAGE_OR_SIGNATURE,
 } from 'src/shared/constants/strings';
+import * as jwt from 'jsonwebtoken';
+import { JWT_SECRET } from '../../shared/constants/global.constants';
 
 @Injectable()
 export class AuthService {
@@ -25,7 +27,10 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  public async authenticate(authUser: AuthUserDTO): Promise<AuthResponseDTO> {
+  public async authenticate(
+    authUser: AuthUserDTO,
+    sessionId: string,
+  ): Promise<AuthResponseDTO> {
     if (authUser.accessToken && authUser.accessToken.length > 0) {
       const payload = this.jwtService.verify(authUser.accessToken);
       const user = await this.userService.findUser({
@@ -41,6 +46,7 @@ export class AuthService {
       return {
         walletAddress: user.walletAddress,
         accessToken: authUser.accessToken,
+        removeSession: false,
       };
     }
 
@@ -62,13 +68,20 @@ export class AuthService {
         message: INVALID_WALLET_ADDRESS,
       });
 
-    var user = await this.userService.findUser({
+    let user = await this.userService.findUser({
       walletAddress: userWalletAddress,
     });
+
     if (!user) {
       user = await this.userService.createUser({
         walletAddress: userWalletAddress,
       });
+    }
+    let removeSession = false;
+    if (sessionId) {
+      // If user exists and has a session ID, link any temporary content
+      await this.linkTempUsers(user.id, sessionId);
+      removeSession = true;
     }
 
     const payload = user;
@@ -79,6 +92,7 @@ export class AuthService {
     return {
       walletAddress: user.walletAddress,
       accessToken: accessToken,
+      removeSession: removeSession,
     };
   }
 
@@ -89,10 +103,43 @@ export class AuthService {
       walletAddress.startsWith('0x')
     );
   }
-  // private async signMessage(signedMessage: string) {
-  //     const signature = await this.wallet.signMessage(signedMessage);
-  //     return signature;
-  //     console.log("Signed Message:", signedMessage);
-  //     console.log("Signature:", signature);
-  // }
+
+  private async linkTempUsers(userId: string, sessionId: string) {
+    if (!sessionId) return;
+    console.log('linking temp users');
+    // Find all temporary users with this session ID
+    const tempUser = await this.prisma.user.findUnique({
+      where: {
+        sessionId,
+      },
+      include: {
+        Post: true,
+        Comment: true,
+        upvotedPosts: true,
+      },
+    });
+
+    if (!tempUser) {
+      return;
+    }
+    // For each temp user, transfer their content to the authenticated user
+    // Update upvoted posts
+
+    // Update all posts
+    await this.prisma.post.updateMany({
+      where: { userId: tempUser.id },
+      data: { userId },
+    });
+
+    // Update all comments
+    await this.prisma.comment.updateMany({
+      where: { userId: tempUser.id },
+      data: { userId },
+    });
+
+    // Delete the temporary user
+    await this.prisma.user.delete({
+      where: { id: tempUser.id },
+    });
+  }
 }

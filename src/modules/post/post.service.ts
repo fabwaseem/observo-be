@@ -15,19 +15,8 @@ import { ExtendedPost } from './interfaces/post.interface';
 export class PostService {
   constructor(private prisma: PrismaService) {}
 
-  async create(
-    walletAddress: string,
-    createPostDto: CreatePostDto,
-  ): Promise<Post> {
-    const user = await this.prisma.user.findUnique({
-      where: { walletAddress },
-    });
+  async create(id: string, createPostDto: CreatePostDto): Promise<Post> {
 
-    if (!user) {
-      throw new NotFoundException(
-        `User with wallet address ${walletAddress} not found`,
-      );
-    }
 
     // Only check if board exists, no need to check ownership
     const board = await this.prisma.board.findUnique({
@@ -58,7 +47,7 @@ export class PostService {
     return this.prisma.post.create({
       data: {
         ...createPostDto,
-        userId: user.id,
+        userId: id,
         slug,
       },
       include: {
@@ -73,18 +62,7 @@ export class PostService {
     });
   }
 
-  async findAll(
-    boardId?: string,
-    walletAddress?: string,
-  ): Promise<ExtendedPost[]> {
-    let userId: string | undefined;
-    console.log(walletAddress);
-    if (walletAddress) {
-      const user = await this.prisma.user.findUnique({
-        where: { walletAddress },
-      });
-      userId = user?.id;
-    }
+  async findAll(boardId?: string, userId?: string): Promise<ExtendedPost[]> {
 
     const where = boardId ? { boardId } : {};
 
@@ -167,17 +145,15 @@ export class PostService {
 
   async update(
     id: string,
-    walletAddress: string,
+    userId: string,
     updatePostDto: UpdatePostDto,
   ): Promise<Post> {
     const user = await this.prisma.user.findUnique({
-      where: { walletAddress },
+      where: { id: userId },
     });
 
     if (!user) {
-      throw new NotFoundException(
-        `User with wallet address ${walletAddress} not found`,
-      );
+      throw new NotFoundException(`User with ID ${userId} not found`);
     }
 
     const post = await this.prisma.post.findUnique({
@@ -221,16 +197,8 @@ export class PostService {
     });
   }
 
-  async remove(id: string, walletAddress: string): Promise<Post> {
-    const user = await this.prisma.user.findUnique({
-      where: { walletAddress },
-    });
+  async remove(id: string, userId: string): Promise<Post> {
 
-    if (!user) {
-      throw new NotFoundException(
-        `User with wallet address ${walletAddress} not found`,
-      );
-    }
 
     const post = await this.prisma.post.findUnique({
       where: { id },
@@ -241,7 +209,7 @@ export class PostService {
     }
 
     // Only post creator can delete it
-    if (post.userId !== user.id) {
+    if (post.userId !== userId) {
       throw new ForbiddenException('You can only delete your own posts');
     }
 
@@ -250,16 +218,8 @@ export class PostService {
     });
   }
 
-  async upvote(id: string, walletAddress: string): Promise<ExtendedPost> {
-    const user = await this.prisma.user.findUnique({
-      where: { walletAddress },
-    });
+  async upvote(id: string, userId: string): Promise<ExtendedPost> {
 
-    if (!user) {
-      throw new NotFoundException(
-        `User with wallet address ${walletAddress} not found`,
-      );
-    }
 
     const post = await this.prisma.post.findUnique({
       where: { id },
@@ -273,7 +233,7 @@ export class PostService {
     }
 
     // Check if user has already upvoted
-    const hasUpvoted = post.upvotedBy.some((upvoter) => upvoter.id === user.id);
+    const hasUpvoted = post.upvotedBy.some((upvoter) => upvoter.id === userId);
 
     if (hasUpvoted) {
       // Remove upvote
@@ -282,7 +242,7 @@ export class PostService {
         data: {
           upvotedBy: {
             disconnect: {
-              id: user.id,
+              id: userId,
             },
           },
         },
@@ -296,7 +256,7 @@ export class PostService {
           },
           upvotedBy: {
             where: {
-              id: user.id,
+              id: userId,
             },
           },
           _count: {
@@ -320,7 +280,7 @@ export class PostService {
       data: {
         upvotedBy: {
           connect: {
-            id: user.id,
+            id: userId,
           },
         },
       },
@@ -334,7 +294,7 @@ export class PostService {
         },
         upvotedBy: {
           where: {
-            id: user.id,
+              id: userId,
           },
         },
         _count: {
@@ -354,18 +314,7 @@ export class PostService {
     };
   }
 
-  async findBySlug(
-    slug: string,
-    walletAddress?: string,
-  ): Promise<ExtendedPost> {
-    let userId: string | undefined;
-
-    if (walletAddress) {
-      const user = await this.prisma.user.findUnique({
-        where: { walletAddress },
-      });
-      userId = user?.id;
-    }
+  async findBySlug(slug: string, userId?: string): Promise<ExtendedPost> {
 
     const post = await this.prisma.post.findUnique({
       where: { slug },
