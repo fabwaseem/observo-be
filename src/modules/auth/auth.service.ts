@@ -1,13 +1,21 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { User } from '@prisma/client';
-
-import { UserService } from '../user/user.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { AuthHelpers } from '../../shared/helpers/auth.helpers';
 import { GLOBAL_CONFIG } from '../../configs/global.config';
+import { PrismaService } from '../prisma/prisma.service';
+import { UserService } from '../user/user.service';
 
-import { AuthResponseDTO, LoginUserDTO, RegisterUserDTO } from './dto/auth.dto';
+import { AuthResponseDTO, AuthUserDTO } from './dto/auth.dto';
+
+import { ethers } from 'ethers';
+import {
+  INVALID_ACCESS_TOKEN,
+  INVALID_WALLET_ADDRESS,
+  MISSING_SIGNED_MESSAGE_OR_SIGNATURE,
+} from 'src/shared/constants/strings';
 
 @Injectable()
 export class AuthService {
@@ -17,42 +25,74 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  public async login(loginUserDTO: LoginUserDTO): Promise<AuthResponseDTO> {
-    const userData = await this.userService.findUser({
-      email: loginUserDTO.email,
+  public async authenticate(authUser: AuthUserDTO): Promise<AuthResponseDTO> {
+    if (authUser.accessToken && authUser.accessToken.length > 0) {
+      const payload = this.jwtService.verify(authUser.accessToken);
+      const user = await this.userService.findUser({
+        walletAddress: payload.walletAddress,
+      });
+      if (!user) {
+        throw new UnauthorizedException({
+          success: false,
+          message: INVALID_ACCESS_TOKEN,
+        });
+      }
+
+      return {
+        walletAddress: user.walletAddress,
+        accessToken: authUser.accessToken,
+      };
+    }
+
+    if (!authUser.signedMessage || !authUser.signature) {
+      throw new BadRequestException({
+        success: false,
+        message: MISSING_SIGNED_MESSAGE_OR_SIGNATURE,
+      });
+    }
+
+    let userWalletAddress: string;
+    userWalletAddress = ethers
+      .verifyMessage(authUser.signedMessage, authUser.signature)
+      .toLowerCase();
+
+    if (!this.isValidWalletAddress(userWalletAddress))
+      throw new BadRequestException({
+        success: false,
+        message: INVALID_WALLET_ADDRESS,
+      });
+
+    var user = await this.userService.findUser({
+      walletAddress: userWalletAddress,
     });
-
-    if (!userData) {
-      throw new UnauthorizedException();
+    if (!user) {
+      user = await this.userService.createUser({
+        walletAddress: userWalletAddress,
+      });
     }
 
-    const isMatch = await AuthHelpers.verify(
-      loginUserDTO.password,
-      userData.password,
-    );
-
-    if (!isMatch) {
-      throw new UnauthorizedException();
-    }
-
-    const payload = {
-      id: userData.id,
-      name: userData.name,
-      email: userData.email,
-      password: null,
-      // role: userData.role,
-    };
-
+    const payload = user;
     const accessToken = this.jwtService.sign(payload, {
       expiresIn: GLOBAL_CONFIG.security.expiresIn,
     });
 
     return {
-      user: payload,
+      walletAddress: user.walletAddress,
       accessToken: accessToken,
     };
   }
-  public async register(user: RegisterUserDTO): Promise<User> {
-    return this.userService.createUser(user);
+
+  private isValidWalletAddress(walletAddress: string): boolean {
+    return (
+      ethers.isAddress(walletAddress) &&
+      walletAddress.length === 42 &&
+      walletAddress.startsWith('0x')
+    );
   }
+  // private async signMessage(signedMessage: string) {
+  //     const signature = await this.wallet.signMessage(signedMessage);
+  //     return signature;
+  //     console.log("Signed Message:", signedMessage);
+  //     console.log("Signature:", signature);
+  // }
 }

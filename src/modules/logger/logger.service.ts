@@ -1,5 +1,5 @@
 import * as winston from 'winston';
-import * as chalk from 'chalk';
+import chalk from 'chalk';
 import { createLogger, LoggerOptions } from 'winston';
 import { Injectable, LoggerService } from '@nestjs/common';
 
@@ -102,7 +102,7 @@ export class MyLogger implements LoggerService {
   // this method just for printing a cool log in your terminal , using chalk
   private logToConsole(level: string, message: string): void {
     let result;
-    const color = chalk.default;
+    const color = chalk;
     const currentDate = new Date();
     const time = `${currentDate.getHours()}:${currentDate.getMinutes()}:${currentDate.getSeconds()}`;
 

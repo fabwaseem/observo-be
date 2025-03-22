@@ -7,19 +7,81 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Post {
-  id        Int      @id @default(autoincrement())
-  title     String
-  content   String?
-  published Boolean? @default(false)
-  authorId  Int?
-  User      User?    @relation(fields: [authorId], references: [id])
+enum UserRole {
+  USER
+  ADMIN
 }
 
 model User {
-  id        Int     @id @default(autoincrement())
-  email     String  @unique
-  password  String
-  name      String?
-  Post      Post[]
+  id            String    @id @default(uuid())
+  walletAddress String    @unique
+  name          String?
+  avatar        String?
+  role          UserRole? @default(USER)
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  Board        Board[]
+  Post         Post[]
+  Comment      Comment[]
+  upvotedPosts Post[]    @relation("PostUpvotes")
+}
+
+enum BoardTheme {
+  LIGHT
+  DARK
+  RETRO
+  CYBERPUNK
+  CUPCAKE
+  AQUA
+  VALENTINE
+  SYNTHWAVE
+}
+
+model Board {
+  id        String     @id @default(uuid())
+  name      String
+  slug      String     @unique
+  theme     BoardTheme @default(LIGHT)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  User   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  Post   Post[]
+}
+
+enum PostStatus {
+  NEW
+  WORK_IN_PROGRESS
+  SHIPPED
+  CANCELLED
+}
+
+model Post {
+  id          String     @id @default(uuid())
+  title       String
+  slug        String     @unique
+  description String?
+  status      PostStatus @default(NEW)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  Board     Board     @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  boardId   String
+  Comment   Comment[]
+  User      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  upvotedBy User[]    @relation("PostUpvotes")
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    String
 }

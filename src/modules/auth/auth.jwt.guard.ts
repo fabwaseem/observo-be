@@ -32,11 +32,6 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       return user;
     }
 
-    // const hasPermission = this.roles.includes(user.role);
-    // if (!hasPermission) {
-    //   throw new ForbiddenException();
-    // }
-
     return user;
   }
 }

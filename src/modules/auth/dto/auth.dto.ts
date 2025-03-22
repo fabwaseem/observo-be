@@ -1,39 +1,24 @@
-import { User } from '@prisma/client';
-import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import { IsString, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
-import { INVALID_EMAIL } from '../../../shared/constants/strings';
-
 export class AuthResponseDTO {
-  user: User;
+  walletAddress: string;
   accessToken: string;
 }
 
-export class RegisterUserDTO {
+export class AuthUserDTO {
+  @IsOptional() // Allow `undefined` values
   @IsString()
-  @IsNotEmpty()
-  @ApiProperty()
-  @IsEmail({}, { message: INVALID_EMAIL })
-  email: string;
+  @ApiProperty({ required: false })
+  signature?: string;
 
+  @IsOptional()
   @IsString()
-  @ApiProperty()
-  name: string;
+  @ApiProperty({ required: false })
+  signedMessage?: string;
 
+  @IsOptional()
   @IsString()
-  @ApiProperty()
-  password: string;
-}
-
-export class LoginUserDTO {
-  @IsString()
-  @IsNotEmpty()
-  @ApiProperty()
-  @IsEmail({}, { message: INVALID_EMAIL })
-  email: string;
-
-  @IsString()
-  @IsNotEmpty()
-  @ApiProperty()
-  password: string;
+  @ApiProperty({ required: false })
+  accessToken?: string;
 }

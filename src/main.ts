@@ -25,15 +25,16 @@ async function bootstrap() {
     new InvalidFormExceptionFilter(),
   );
 
-  app.use(
-    cors({
-      origin: process.env.FRONTEND_URL,
-      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      credentials: true,
-    }),
-  );
+  app.enableCors({
+    origin: process.env.FRONTEND_URL,
+    methods: 'GET,PUT,POST,DELETE,OPTIONS,PATCH', // Allow all common HTTP methods
+    allowedHeaders: '*', // Allow all headers
+    exposedHeaders: '*', // Expose all headers
+    credentials: true, // Allow credentials
+    maxAge: 3600, // Cache preflight requests for 1 hour
+  });
 
-  app.use(cookieParser());
+  // app.use(cookieParser());
 
   app.useGlobalPipes(new ValidationPipe());
 
