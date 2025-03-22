@@ -60,13 +60,15 @@ export class AnonymousGuard implements CanActivate {
     response: any,
   ): Promise<string> {
     const COOKIE_NAME = 'anonymous_session';
+    const isProduction = process.env.NODE_ENV === 'production';
+
     const COOKIE_OPTIONS = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
       maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year
       path: '/',
-      domain: process.env.COOKIE_DOMAIN || undefined
+      domain: process.env.COOKIE_DOMAIN || undefined,
     };
 
     let sessionId = request.cookies[COOKIE_NAME];
