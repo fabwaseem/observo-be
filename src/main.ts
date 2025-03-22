@@ -1,19 +1,21 @@
-import { HttpAdapterHost, NestFactory } from '@nestjs/core';
+import {
+  BadRequestException,
+  ValidationError,
+  ValidationPipe,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { HttpAdapterHost, NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { ValidationPipe } from '@nestjs/common';
-import cors from 'cors';
-import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
-import { AppModule } from './modules/app/app.module';
-import { API_PREFIX } from './shared/constants/global.constants';
 import { SwaggerConfig } from './configs/config.interface';
 import { GLOBAL_CONFIG } from './configs/global.config';
-import { MyLogger } from './modules/logger/logger.service';
-import { InvalidFormExceptionFilter } from './filters/invalid.form.exception.filter';
 import { AllExceptionsFilter } from './filters/all.exceptions.filter';
-import { SecurityInterceptor } from './shared/interceptors/security.interceptor';
+import { InvalidFormExceptionFilter } from './filters/invalid.form.exception.filter';
+import { AppModule } from './modules/app/app.module';
+import { MyLogger } from './modules/logger/logger.service';
+import { API_PREFIX } from './shared/constants/global.constants';
 import { RateLimitGuard } from './shared/guards/rate-limit.guard';
+import { SecurityInterceptor } from './shared/interceptors/security.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -45,18 +47,42 @@ async function bootstrap() {
   // Add global rate limiting
   app.useGlobalGuards(new RateLimitGuard());
 
-  // app.use(cookieParser());
-
-  // Global validation pipe with strict settings
+  // Global validation pipe with concise error messages
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true, // Strip properties that don't have decorators
-      forbidNonWhitelisted: true, // Throw error if non-whitelisted properties are present
-      transform: true, // Transform payloads to DTO instances
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
       transformOptions: {
-        enableImplicitConversion: false, // Require explicit type declarations
+        enableImplicitConversion: false,
       },
-      disableErrorMessages: process.env.NODE_ENV === 'production', // Hide detailed errors in production
+      exceptionFactory: (errors: ValidationError[]) => {
+        const formatError = (error: ValidationError): string[] => {
+          const messages: string[] = [];
+
+          if (error.constraints) {
+            // Get only the first constraint message for each property
+            const message = Object.values(error.constraints)[0];
+            messages.push(message);
+          }
+
+          if (error.children?.length) {
+            error.children.forEach((child) => {
+              messages.push(...formatError(child));
+            });
+          }
+
+          return messages;
+        };
+
+        const errorMessages = errors.map(formatError).flat();
+        const message = errorMessages.join('. ');
+
+        return new BadRequestException({
+          message: message.charAt(0).toUpperCase() + message.slice(1),
+          statusCode: 400,
+        });
+      },
     }),
   );
 
